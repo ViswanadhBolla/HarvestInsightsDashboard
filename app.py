@@ -29,24 +29,39 @@ filtered_data = data[data["Crop_Type"].isin(selected_crops)]
 if selected_pest != "All":
     filtered_data = filtered_data[filtered_data["Pest_Infestation"] == selected_pest]
 
+# Add Date Range Filter
+if "Date" in data.columns:
+    st.sidebar.header("Date Range")
+    start_date, end_date = st.sidebar.date_input(
+        "Select Date Range",
+        value=[data["Date"].min(), data["Date"].max()]
+    )
+    filtered_data = filtered_data[
+        (filtered_data["Date"] >= pd.to_datetime(start_date)) &
+        (filtered_data["Date"] <= pd.to_datetime(end_date))
+    ]
+
 # Display Metrics
 st.markdown("### Key Metrics")
 col1, col2, col3 = st.columns(3)
-col1.metric("Avg Predicted Yield (ton/acre)", f"{filtered_data['Predicted_Yield_ton_per_acre'].mean():.2f}")
-col2.metric("Avg Soil Moisture (%)", f"{filtered_data['Soil_Moisture_%'].mean():.2f}")
-col3.metric("Avg Fertilizer Used (kg/acre)", f"{filtered_data['Fertilizer_Used_kg_per_acre'].mean():.1f}")
+# Tooltips for Metrics
+col1.metric("Avg Predicted Yield (ton/acre)", f"{filtered_data['Predicted_Yield_ton_per_acre'].mean():.2f}", "Average yield predicted per acre")
+col2.metric("Avg Soil Moisture (%)", f"{filtered_data['Soil_Moisture_%'].mean():.2f}", "Average soil moisture percentage")
+col3.metric("Avg Fertilizer Used (kg/acre)", f"{filtered_data['Fertilizer_Used_kg_per_acre'].mean():.1f}", "Average fertilizer used per acre")
 
-# Scatter Plot: Soil Moisture vs Predicted Yield
-st.markdown("### Soil Moisture vs Predicted Yield")
-fig_scatter = px.scatter(
+# Dynamic Scatter Plot
+st.markdown("### Custom Scatter Plot")
+x_axis = st.selectbox("Select X-axis", options=filtered_data.columns, index=filtered_data.columns.get_loc("Soil_Moisture_%"))
+y_axis = st.selectbox("Select Y-axis", options=filtered_data.columns, index=filtered_data.columns.get_loc("Predicted_Yield_ton_per_acre"))
+fig_custom_scatter = px.scatter(
     filtered_data,
-    x="Soil_Moisture_%",
-    y="Predicted_Yield_ton_per_acre",
+    x=x_axis,
+    y=y_axis,
     color="Crop_Type",
     trendline="ols",
-    title="Soil Moisture vs Predicted Yield"
+    title=f"{x_axis} vs {y_axis}"
 )
-st.plotly_chart(fig_scatter, use_container_width=True)
+st.plotly_chart(fig_custom_scatter, use_container_width=True)
 
 # Bar Chart: Fertilizer Usage by Crop Type
 st.markdown("###  Fertilizer Usage by Crop Type")
@@ -75,3 +90,20 @@ st.plotly_chart(fig_hist, use_container_width=True)
 # Expandable Raw Data Section
 with st.expander(" View Raw Data"):
     st.dataframe(filtered_data)
+
+# Dataset Summary
+st.sidebar.markdown("### Dataset Summary")
+st.sidebar.write(f"Total Records: {len(data)}")
+st.sidebar.write(f"Unique Crop Types: {data['Crop_Type'].nunique()}")
+if "Date" in data.columns:
+    st.sidebar.write(f"Date Range: {data['Date'].min()} to {data['Date'].max()}")
+
+# Download Filtered Data
+st.sidebar.markdown("### Download Data")
+csv = filtered_data.to_csv(index=False)
+st.sidebar.download_button(
+    label="Download Filtered Data as CSV",
+    data=csv,
+    file_name="filtered_data.csv",
+    mime="text/csv"
+)
